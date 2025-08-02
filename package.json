@@ -1,0 +1,61 @@
+{
+  "name": "typingpath-modern-typing-master",
+  "version": "2.0.0",
+  "description": "TypingPath - Modern typing master platform for learning touch typing. AI-powered lessons, real-time feedback, and gamified typing practice. Perfect for Vietnam typing and Vietnamese learners.",
+  "private": false,
+  "type": "module",
+  "keywords": [
+    "typing",
+    "typing-practice",
+    "touch-typing",
+    "typing-speed",
+    "typing-test",
+    "learn-typing",
+    "typing-lessons",
+    "vietnam-typing",
+    "vietnamese-typing",
+    "typing-master",
+    "keyboard-practice",
+    "typing-skills",
+    "wpm-test",
+    "typing-trainer",
+    "online-typing",
+    "typing-course",
+    "ai-powered",
+    "practice",
+    "analytics",
+    "education",
+    "react",
+    "typescript",
+    "vite"
+  ],
+  "author": "Aditya1156",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aditya1156/TypingPath.git"
+  },
+  "homepage": "https://github.com/Aditya1156/TypingPath#readme",
+  "bugs": {
+    "url": "https://github.com/Aditya1156/TypingPath/issues"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "firebase": "^11.10.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "terser": "^5.43.1",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0"
+  }
+}

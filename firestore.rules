@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Sessions collection - users can read/write their own sessions
+    match /sessions/{sessionId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Timer stats collection - users can read/write their own timer stats
+    match /timerStats/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Leaderboard collection - read only for authenticated users
+    match /leaderboard/{document} {
+      allow read: if request.auth != null;
+      allow write: if false; // Managed by server-side functions only
+    }
+    
+    // Public lessons - read only for all users
+    match /lessons/{lessonId} {
+      allow read: if true;
+      allow write: if false; // Managed by admin only
+    }
+    
+    // User achievements - users can read/write their own achievements
+    match /achievements/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // User progress - users can read/write their own progress
+    match /progress/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Subscription data (embedded in users collection)
+    // This is already covered by the users/{userId} rule above
+    
+    // Analytics data - users can read/write their own analytics
+    match /analytics/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Custom lessons - users can read/write their own custom lessons
+    match /customLessons/{lessonId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.createdBy;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.createdBy;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
