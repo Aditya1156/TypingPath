@@ -10,6 +10,8 @@ import Results from './components/Results';
 import LoadingSpinner from './components/LoadingSpinner';
 import AiCoachFeedback from './components/AiCoachFeedback';
 import LessonSelector from './components/LessonSelector';
+import ChapterOverview from './components/chapter/ChapterOverview';
+import ChapterView from './components/chapter/ChapterView';
 import KeyboardGuide from './components/KeyboardGuide';
 import FingerGuideUI from './components/FingerGuideUI';
 import LiveStats from './components/LiveStats';
@@ -22,8 +24,9 @@ import { calculateAccuracy } from './utils/helpers';
 import { optimizedChapters as chapters } from './data/optimized-lessons';
 
 const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; onShowModal: (modal: ModalType) => void; }) => {
-  const [view, setView] = useState<'lessons' | 'test' | 'guide' | 'dashboard'>('lessons');
-  const [previousView, setPreviousView] = useState<'lessons' | 'test' | 'guide' | 'dashboard'>('lessons');
+  const [view, setView] = useState<'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard'>('chapters');
+  const [previousView, setPreviousView] = useState<'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard'>('chapters');
+  const [currentChapterId, setCurrentChapterId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user } = useAuth();
   const { isSoundEnabled, caretStyle } = useSettings();
@@ -161,12 +164,40 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
 
   // Handle chapter selection from dashboard
   const handleSelectChapter = useCallback((chapterNumber: number) => {
-    setView('lessons');
-    // Scroll to the specific chapter
-    // We can implement chapter scrolling in the LessonSelector later
-  }, []);
+    // Convert chapter number to chapter ID and navigate
+    const chapterId = chapters[chapterNumber - 1]?.id || chapters[0]?.id;
+    if (chapterId) {
+      setCurrentChapterId(chapterId);
+      saveScrollPosition(view);
+      setPreviousView(view);
+      setView('chapter');
+    }
+  }, [view, saveScrollPosition]);
+
+  // Handle chapter selection from chapter overview
+  const handleSelectChapterFromOverview = useCallback((chapterId: string) => {
+    setCurrentChapterId(chapterId);
+    saveScrollPosition(view);
+    setPreviousView(view);
+    setView('chapter');
+  }, [view, saveScrollPosition]);
+
+  // Handle navigating back to chapter overview
+  const handleBackToChapters = useCallback(() => {
+    saveScrollPosition(view);
+    setPreviousView(view);
+    setView('chapters');
+    setCurrentChapterId(null);
+  }, [view, saveScrollPosition]);
+
+  // Handle navigating to a specific chapter from chapter view
+  const handleNavigateChapter = useCallback((chapterId: string) => {
+    setCurrentChapterId(chapterId);
+    saveScrollPosition(view);
+    // Stay in chapter view, just switch chapter
+  }, [view, saveScrollPosition]);
   
-  const handleNavigate = (newView: 'lessons' | 'guide' | 'dashboard') => {
+  const handleNavigate = (newView: 'chapters' | 'chapter' | 'lessons' | 'guide' | 'dashboard') => {
     saveScrollPosition(view);
     setPreviousView(view);
     setView(newView);
@@ -330,6 +361,37 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
 
   const renderContent = () => {
     switch (view) {
+      case 'chapters':
+        return (
+          <ChapterOverview
+            chapters={chapters}
+            onSelectChapter={handleSelectChapterFromOverview}
+            onSelectRandom={handleSelectRandom}
+            onGenerateAiDrill={handleGenerateAiDrill}
+            isAiDrillLoading={isAiDrillLoading}
+            aiDrillError={aiDrillError}
+            progress={progress}
+            isProgressLoaded={isProgressLoaded}
+            onResetProgress={resetProgress}
+            onBackToHome={onGoToLanding}
+            onUpgrade={handleUpgrade}
+          />
+        );
+      case 'chapter':
+        const currentChapter = chapters.find(c => c.id === currentChapterId) || chapters[0];
+        return (
+          <ChapterView
+            chapter={currentChapter}
+            chapters={chapters}
+            onSelectLesson={handleSelectLesson}
+            onSelectDrill={handleSelectDrill}
+            progress={progress}
+            isProgressLoaded={isProgressLoaded}
+            onUpgrade={handleUpgrade}
+            onBackToLessons={handleBackToChapters}
+            onNavigateChapter={handleNavigateChapter}
+          />
+        );
       case 'lessons':
         return (
           <LessonSelector
@@ -482,12 +544,12 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
         />
       )}
 
-      {/* App Header - Only show on main lessons view */}
-      {view === 'lessons' && (
+      {/* App Header - Show on chapter overview and individual chapter views */}
+      {(view === 'chapters' || view === 'chapter' || view === 'lessons') && (
         <AppHeader onShowModal={onShowModal} onOpenSidebar={handleOpenSidebar} />
       )}
 
-      <main className={`flex-grow flex flex-col items-center p-4 sm:p-6 lg:p-8 overflow-y-auto ${view === 'lessons' ? 'pt-40 mt-8' : 'pt-4'}`}>
+      <main className={`flex-grow flex flex-col items-center p-4 sm:p-6 lg:p-8 overflow-y-auto ${(view === 'chapters' || view === 'chapter' || view === 'lessons') ? 'pt-40 mt-8' : 'pt-4'}`}>
         <SessionLimitGuard onUpgrade={handleUpgrade} onSignIn={handleSignIn} currentView={view}>
           {renderContent()}
         </SessionLimitGuard>
