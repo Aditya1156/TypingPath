@@ -20,6 +20,10 @@ interface AuthContextType {
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   upgradeSubscription: (tier: SubscriptionTier, paymentMethod?: string) => Promise<void>;
   redeemGiftCode: (code: string) => Promise<SubscriptionTier>;
+  // Email verification methods
+  sendEmailVerification: () => Promise<void>;
+  checkEmailVerification: () => Promise<boolean>;
+  resendEmailVerification: () => Promise<void>;
   // Enhanced session management
   getSessionConfig: () => SessionConfig;
   updateSessionConfig: (config: Partial<SessionConfig>) => Promise<void>;
@@ -737,6 +741,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return Math.max(0, sessionData.expiresAt - Date.now());
   }, []);
 
+  // Email verification methods
+  const sendEmailVerification = useCallback(async () => {
+    try {
+      await authService.sendEmailVerification();
+      addToast('Verification email sent! Please check your inbox.', 'success');
+    } catch (error: any) {
+      addToast(error.message, 'error');
+      throw error;
+    }
+  }, [addToast]);
+
+  const checkEmailVerification = useCallback(async () => {
+    try {
+      return await authService.checkEmailVerification();
+    } catch (error: any) {
+      addToast(error.message, 'error');
+      throw error;
+    }
+  }, [addToast]);
+
+  const resendEmailVerification = useCallback(async () => {
+    try {
+      await authService.resendEmailVerification();
+      addToast('Verification email resent! Please check your inbox.', 'success');
+    } catch (error: any) {
+      addToast(error.message, 'error');
+      throw error;
+    }
+  }, [addToast]);
+
   // Memoize the context value to prevent unnecessary re-renders
   const value = useMemo(() => ({ 
     user, 
@@ -749,6 +783,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updatePassword, 
     upgradeSubscription, 
     redeemGiftCode,
+    // Email verification methods
+    sendEmailVerification,
+    checkEmailVerification,
+    resendEmailVerification,
     // Enhanced session management
     getSessionConfig,
     updateSessionConfig,
@@ -767,6 +805,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     updatePassword,
     upgradeSubscription,
     redeemGiftCode,
+    sendEmailVerification,
+    checkEmailVerification,
+    resendEmailVerification,
     getSessionConfig,
     updateSessionConfig,
     isDeviceTrusted,

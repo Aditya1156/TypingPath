@@ -42,6 +42,13 @@ export const authService = {
       if (userCredential.user) {
         await userCredential.user.updateProfile({ displayName: name });
         console.log('User profile updated with displayName:', name);
+        
+        // Send email verification
+        await userCredential.user.sendEmailVerification({
+          url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+          handleCodeInApp: false
+        });
+        console.log('Email verification sent to:', email);
       }
       
       const { uid, displayName, email: userEmail } = userCredential.user!;
@@ -238,6 +245,81 @@ export const authService = {
           throw new Error('Invalid credentials provided.');
         default:
           throw new Error(error.message || 'Failed to verify current password.');
+      }
+    }
+  },
+
+  // Email verification methods
+  sendEmailVerification: async (): Promise<void> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user is currently signed in');
+      }
+      
+      if (currentUser.emailVerified) {
+        throw new Error('Email is already verified');
+      }
+      
+      await currentUser.sendEmailVerification({
+        url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+        handleCodeInApp: false
+      });
+      
+      console.log('Email verification sent successfully');
+    } catch (error: any) {
+      console.error('Send email verification error:', error);
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          throw new Error('Too many verification emails sent. Please wait before requesting another.');
+        case 'auth/user-not-found':
+          throw new Error('User not found. Please sign up first.');
+        default:
+          throw new Error(error.message || 'Failed to send verification email.');
+      }
+    }
+  },
+
+  checkEmailVerification: async (): Promise<boolean> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return false;
+      }
+      
+      // Reload user to get latest email verification status
+      await currentUser.reload();
+      return currentUser.emailVerified;
+    } catch (error) {
+      console.error('Check email verification error:', error);
+      return false;
+    }
+  },
+
+  resendEmailVerification: async (): Promise<void> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user is currently signed in');
+      }
+      
+      if (currentUser.emailVerified) {
+        throw new Error('Email is already verified');
+      }
+      
+      await currentUser.sendEmailVerification({
+        url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+        handleCodeInApp: false
+      });
+      
+      console.log('Email verification resent successfully');
+    } catch (error: any) {
+      console.error('Resend email verification error:', error);
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          throw new Error('Too many verification emails sent. Please wait at least 1 minute before requesting another.');
+        default:
+          throw new Error(error.message || 'Failed to resend verification email.');
       }
     }
   }

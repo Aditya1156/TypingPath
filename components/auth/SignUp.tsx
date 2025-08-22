@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../LoadingSpinner';
+import EmailVerification from './EmailVerification';
 import { validateEmail, validatePassword, sanitizeInput, isRateLimited, secureSessionStorage } from '../../utils/security';
 
 interface SignUpProps {
@@ -16,6 +17,8 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
   const { signUp, signInWithGoogle } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,11 +57,12 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
       // Set flag for redirect handling
       secureSessionStorage.set('signingIn', 'true');
       await signUp(sanitizedName, sanitizedEmail, sanitizedPassword);
-      if (onSignUpSuccess) {
-        onSignUpSuccess();
-      } else {
-        onClose();
-      }
+      
+      // Show email verification modal instead of closing immediately
+      setUserEmail(sanitizedEmail);
+      setShowEmailVerification(true);
+      setIsLoading(false);
+      
     } catch (err: any) {
       secureSessionStorage.remove('signingIn'); // Remove flag on error
       
@@ -68,10 +72,38 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
       } else {
         setError(err.message || 'Failed to sign up. Please try again.');
       }
-    } finally {
       setIsLoading(false);
     }
   };
+
+  const handleVerificationComplete = () => {
+    setShowEmailVerification(false);
+    if (onSignUpSuccess) {
+      onSignUpSuccess();
+    } else {
+      onClose();
+    }
+  };
+
+  const handleVerificationClose = () => {
+    setShowEmailVerification(false);
+    // Reset form but don't close the main modal
+    setName('');
+    setEmail('');
+    setPassword('');
+    setError('');
+  };
+
+  // Show email verification modal if needed
+  if (showEmailVerification) {
+    return (
+      <EmailVerification
+        onClose={handleVerificationClose}
+        onVerificationComplete={handleVerificationComplete}
+        userEmail={userEmail}
+      />
+    );
+  }
   
   const handleGoogleSignIn = () => {
     setError('');

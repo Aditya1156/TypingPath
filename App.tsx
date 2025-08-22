@@ -4,6 +4,7 @@ import TypingApp from './TypingApp';
 import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+import VerifyEmailPage from './components/VerifyEmailPage';
 
 import { useAuth } from './context/AuthContext';
 import { useSettings } from './context/SettingsContext';
@@ -20,7 +21,7 @@ const Settings = lazy(() => import('./components/Settings'));
 const SubscriptionManager = lazy(() => import('./components/SubscriptionManager'));
 
 const App = () => {
-  const [view, setView] = useState<'landing' | 'app'>('landing');
+  const [view, setView] = useState<'landing' | 'app' | 'verify-email'>('landing');
   const [activeModal, setActiveModal] = useState<ModalType | null>(null);
   const [initialAuthChecked, setInitialAuthChecked] = useState(false);
   const { user, isLoading } = useAuth();
@@ -29,10 +30,20 @@ const App = () => {
 
   // Check if this is a Google Sign-In redirect by looking at URL parameters
   const isGoogleRedirect = window.location.search.includes('state=') || window.location.search.includes('code=');
+  
+  // Check if this is the email verification page
+  const isVerifyEmailPage = window.location.pathname === '/verify-email';
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Handle email verification route
+  useEffect(() => {
+    if (isVerifyEmailPage) {
+      setView('verify-email');
+    }
+  }, [isVerifyEmailPage]);
 
   // Handle redirect to main app after successful authentication
   useEffect(() => {
@@ -159,7 +170,9 @@ const App = () => {
     <ErrorBoundary>
       <TimerProvider>
         <ToastContainer />
-        {view === 'landing' ? (
+        {view === 'verify-email' ? (
+          <VerifyEmailPage />
+        ) : view === 'landing' ? (
           <LandingPage onStartTyping={handleStartTyping} onShowModal={handleShowModal} onShowSignIn={handleShowSignInModal} />
         ) : (
           <TypingApp 
