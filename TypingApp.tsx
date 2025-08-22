@@ -23,6 +23,16 @@ import type { AiAnalysis, Lesson, PracticeMode, ModalType } from './types';
 import { calculateAccuracy } from './utils/helpers';
 import { optimizedChapters as chapters } from './data/optimized-lessons';
 
+// Navigation state interface for browser history
+interface NavigationState {
+  view: 'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard';
+  previousView: 'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard';
+  currentChapterId?: string | null;
+  currentLesson?: Lesson | null;
+  currentDrillIndex?: number;
+  scrollPosition?: number;
+}
+
 const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; onShowModal: (modal: ModalType) => void; }) => {
   const [view, setView] = useState<'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard'>('chapters');
   const [previousView, setPreviousView] = useState<'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard'>('chapters');
@@ -35,18 +45,11 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [currentDrillIndex, setCurrentDrillIndex] = useState<number>(0);
   
+  // History management for browser navigation sync
+  const [isNavigatingByHistory, setIsNavigatingByHistory] = useState(false);
+  
   // Scroll position state to preserve position when navigating back
   const [scrollPositions, setScrollPositions] = useState<{[key: string]: number}>({});
-
-  // Upgrade function for premium features
-  const handleUpgrade = useCallback(() => {
-    onShowModal('upgrade' as ModalType);
-  }, [onShowModal]);
-
-  // Sign in function for guest users
-  const handleSignIn = useCallback(() => {
-    onShowModal('signIn');
-  }, [onShowModal]);
 
   // Save current scroll position
   const saveScrollPosition = (viewName: string) => {
@@ -72,6 +75,136 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
   useEffect(() => {
     restoreScrollPosition(view);
   }, [view, scrollPositions]);
+
+  // Navigate to view with history management
+  const navigateToView = useCallback((newView: 'chapters' | 'chapter' | 'lessons' | 'test' | 'guide' | 'dashboard', updateHistory = true) => {
+    saveScrollPosition(view);
+    setPreviousView(view);
+    setView(newView);
+    
+    if (updateHistory && !isNavigatingByHistory) {
+      // Create a new history entry for this navigation
+      const navigationState: NavigationState = {
+        view: newView,
+        previousView: view,
+        currentChapterId,
+        currentLesson,
+        currentDrillIndex,
+        scrollPosition: window.scrollY
+      };
+      
+      window.history.pushState({ ...navigationState, isTypingApp: true }, '', window.location.href);
+    }
+  }, [view, currentChapterId, currentLesson, currentDrillIndex, isNavigatingByHistory]);
+
+  // Handle browser back/forward navigation and prevent website exit
+  useEffect(() => {
+    // Initialize history state on mount
+    const initialState: NavigationState = {
+      view,
+      previousView,
+      currentChapterId,
+      currentLesson,
+      currentDrillIndex,
+      scrollPosition: window.scrollY
+    };
+    
+    // Replace current history state with our navigation state
+    if (!window.history.state?.isTypingApp) {
+      window.history.replaceState({ ...initialState, isTypingApp: true }, '', window.location.href);
+    }
+
+    // Handle browser back/forward navigation
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.isTypingApp) {
+        setIsNavigatingByHistory(true);
+        const state = event.state as NavigationState & { isTypingApp: boolean };
+        
+        // Restore navigation state from history
+        setView(state.view);
+        setPreviousView(state.previousView);
+        setCurrentChapterId(state.currentChapterId || null);
+        
+        if (state.currentLesson) {
+          setCurrentLesson(state.currentLesson);
+          setCurrentDrillIndex(state.currentDrillIndex || 0);
+          
+          // If returning to a test, reload the test content
+          if (state.view === 'test' && state.currentLesson) {
+            if (state.currentLesson.id === 'random') {
+              loadTest();
+            } else if (state.currentLesson.id === 'ai-drill') {
+              loadTest(state.currentLesson.texts[0]);
+            } else if (state.currentLesson.texts) {
+              loadTest(state.currentLesson.texts[state.currentDrillIndex || 0]);
+            }
+          }
+        }
+        
+        // Restore scroll position
+        if (state.scrollPosition !== undefined) {
+          setTimeout(() => {
+            window.scrollTo(0, state.scrollPosition!);
+          }, 50);
+        }
+        
+        setIsNavigatingByHistory(false);
+      } else {
+        // If no typing app state and we're at the root, stay in app but go to chapters
+        if (view !== 'chapters') {
+          // Push chapters view to history and navigate there instead of exiting
+          event.preventDefault();
+          navigateToView('chapters', false);
+        } else {
+          // Only exit if already at chapters view
+          onGoToLanding();
+        }
+      }
+    };
+
+    // Prevent accidental website exit with confirmation
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Only show confirmation if user is actively typing or has made progress
+      if (view === 'test' && (state === 'run' || totalTyped > 0)) {
+        event.preventDefault();
+        return (event.returnValue = 'You have an active typing test. Are you sure you want to leave?');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [onGoToLanding, loadTest, view, previousView, currentChapterId, currentLesson, currentDrillIndex, state, totalTyped, navigateToView]);
+
+  // Push new state to history when navigation changes (but not during history navigation)
+  useEffect(() => {
+    if (!isNavigatingByHistory) {
+      const navigationState: NavigationState = {
+        view,
+        previousView,
+        currentChapterId,
+        currentLesson,
+        currentDrillIndex,
+        scrollPosition: window.scrollY
+      };
+      
+      window.history.pushState({ ...navigationState, isTypingApp: true }, '', window.location.href);
+    }
+  }, [view, previousView, currentChapterId, currentLesson, currentDrillIndex, isNavigatingByHistory]);
+
+  // Upgrade function for premium features
+  const handleUpgrade = useCallback(() => {
+    onShowModal('upgrade' as ModalType);
+  }, [onShowModal]);
+
+  // Sign in function for guest users
+  const handleSignIn = useCallback(() => {
+    onShowModal('signIn');
+  }, [onShowModal]);
 
   const { progress, saveDrillPerformance, resetProgress, isLoaded: isProgressLoaded } = useProgress(user);
 
@@ -198,9 +331,7 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
   }, [view, saveScrollPosition]);
   
   const handleNavigate = (newView: 'chapters' | 'chapter' | 'lessons' | 'guide' | 'dashboard') => {
-    saveScrollPosition(view);
-    setPreviousView(view);
-    setView(newView);
+    navigateToView(newView);
   };
 
   const handleSelectLesson = useCallback((lesson: Lesson) => {
@@ -253,7 +384,7 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
     resetAiState();
   }, [view, previousView, saveScrollPosition]);
 
-  // ESC key handler for quick navigation
+  // ESC key handler for quick navigation and browser keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -262,7 +393,22 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
         return;
       }
       
-      // Only handle ESC key, let other keys pass through to useEngine
+      // Handle browser navigation shortcuts
+      if ((event.altKey || event.metaKey) && event.key === 'ArrowLeft') {
+        // Alt+Left Arrow or Cmd+Left Arrow (browser back)
+        event.preventDefault();
+        window.history.back();
+        return;
+      }
+      
+      if ((event.altKey || event.metaKey) && event.key === 'ArrowRight') {
+        // Alt+Right Arrow or Cmd+Right Arrow (browser forward)
+        event.preventDefault();
+        window.history.forward();
+        return;
+      }
+      
+      // Only handle ESC key for internal navigation
       if (event.key === 'Escape') {
         if (view === 'test' || view === 'dashboard') {
           handleBackToMenu();
@@ -434,7 +580,7 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
                 <span className="text-accent">Dashboard</span>
               </nav>
             </div>
-            <Dashboard progress={progress} isProgressLoaded={isProgressLoaded} onSelectDrill={handleSelectDrill} onUpgrade={handleUpgrade} onSelectChapter={handleSelectChapter} />
+            <Dashboard progress={progress} isProgressLoaded={isProgressLoaded} onSelectDrill={handleSelectDrill} onUpgrade={handleUpgrade} onSelectChapter={handleSelectChapter} chapters={chapters} />
           </div>
         );
       case 'test':

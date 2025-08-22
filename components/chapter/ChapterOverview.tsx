@@ -202,13 +202,13 @@ const ChapterOverview = ({
             <p className="text-text-secondary">Master typing step-by-step with our structured learning path</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
             {chapters.map((chapter, index) => {
               const totalDrills = chapter.lessons.reduce((acc, lesson) => 
-                acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
+                acc + (lesson.texts?.length || 0), 0
               );
               const completedDrills = chapter.lessons.reduce((acc, lesson) => {
-                if (lesson.type === 'test') {
+                if (lesson.texts) {
                   return acc + lesson.texts.filter((_, drillIndex) => progress[getDrillId(lesson, drillIndex)]).length;
                 }
                 return acc;
@@ -218,8 +218,8 @@ const ChapterOverview = ({
               const isChapterLocked = !isUserPremium && index >= 2;
 
               const chapterCard = (
-                <div className="bg-secondary rounded-xl border border-border-primary overflow-hidden hover:border-accent/50 transition-all transform hover:scale-[1.02] group">
-                  <div className="p-6">
+                <div className="bg-secondary rounded-xl border border-border-primary overflow-hidden hover:border-accent/50 transition-all transform hover:scale-[1.02] group h-full flex flex-col">
+                  <div className="p-6 flex-1 flex flex-col">
                     {/* Chapter Number Badge */}
                     <div className="flex items-start justify-between mb-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
@@ -278,7 +278,7 @@ const ChapterOverview = ({
                     </h3>
                     
                     {/* Chapter Description */}
-                    <p className="text-text-secondary text-sm mb-4 line-clamp-3">
+                    <p className="text-text-secondary text-sm mb-4 line-clamp-3 flex-1">
                       {chapter.description}
                     </p>
 
@@ -316,11 +316,14 @@ const ChapterOverview = ({
                       </div>
                     )}
 
+                    {/* Spacer to push button to bottom */}
+                    <div className="flex-grow"></div>
+
                     {/* Action Button */}
                     <button
                       onClick={() => !isChapterLocked && onSelectChapter(chapter.id)}
                       disabled={isChapterLocked}
-                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all mt-auto ${
                         isChapterLocked
                           ? 'bg-tertiary text-text-secondary cursor-not-allowed'
                           : progressPercentage === 100
@@ -410,7 +413,7 @@ const ChapterOverview = ({
                     {/* Progress straight line segments - dynamically colored and aligned */}
                     {isProgressLoaded && chapters.map((chapter, index) => {
                       const isCompleted = chapter.lessons.every(lesson => 
-                        lesson.type === 'guide' || lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
+                        lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
                       );
                       
                       if (index === 0) return null; // No line before first chapter
@@ -423,7 +426,7 @@ const ChapterOverview = ({
                       // Previous chapter completion status
                       const prevChapter = chapters[index - 1];
                       const isPrevCompleted = prevChapter.lessons.every(lesson => 
-                        lesson.type === 'guide' || lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
+                        lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
                       );
                       
                       // Only show segment if previous chapter is completed or current is in progress
@@ -455,7 +458,7 @@ const ChapterOverview = ({
                 <div className="flex gap-8 px-4">
                   {chapters.map((chapter, index) => {
                     const isCompleted = isProgressLoaded && chapter.lessons.every(lesson => 
-                      lesson.type === 'guide' || lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
+                      lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
                     );
                     const isLocked = !isUserPremium && index >= 2;
                     
@@ -546,7 +549,7 @@ const ChapterOverview = ({
               <h4 className="text-lg font-semibold text-text-primary">Learning Progress</h4>
               <span className="text-accent font-bold">
                 {isProgressLoaded ? 
-                  `${chapters.filter(c => c.lessons.every(l => l.type === 'guide' || l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length} / ${chapters.length}` 
+                  `${chapters.filter(c => c.lessons.every(l => l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length} / ${chapters.length}` 
                   : '0 / ' + chapters.length
                 } chapters completed
               </span>
@@ -556,7 +559,7 @@ const ChapterOverview = ({
               <div className="p-4 bg-secondary rounded-lg">
                 <div className="text-2xl font-bold text-success">
                   {isProgressLoaded ? 
-                    chapters.filter(c => c.lessons.every(l => l.type === 'guide' || l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length
+                    chapters.filter(c => c.lessons.every(l => l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length
                     : 0
                   }
                 </div>

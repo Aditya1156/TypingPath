@@ -6,7 +6,7 @@ import LoadingSpinner from '../LoadingSpinner';
 import TimerWidget from '../TimerWidget';
 import StatsCards from './StatsCards';
 import CurriculumProgress from './CurriculumProgress';
-import type { Progress, Lesson } from '../../types';
+import type { Progress, Lesson, Chapter } from '../../types';
 
 interface DashboardProps {
     progress: Progress;
@@ -14,9 +14,10 @@ interface DashboardProps {
     onSelectDrill: (lesson: Lesson, drillIndex: number) => void;
     onUpgrade?: () => void;
     onSelectChapter?: (chapterNumber: number) => void;
+    chapters?: Chapter[]; // Add chapters prop
 }
 
-const Dashboard = memo(({ progress, isProgressLoaded, onSelectDrill, onUpgrade, onSelectChapter }: DashboardProps) => {
+const Dashboard = memo(({ progress, isProgressLoaded, onSelectDrill, onUpgrade, onSelectChapter, chapters }: DashboardProps) => {
     const { user } = useAuth();
 
     // Memoize performance entries to prevent recalculation on every render
@@ -117,6 +118,7 @@ const Dashboard = memo(({ progress, isProgressLoaded, onSelectDrill, onUpgrade, 
                     progress={progress} 
                     isProgressLoaded={isProgressLoaded}
                     onSelectChapter={onSelectChapter}
+                    chapters={chapters}
                 />
             </section>
             
