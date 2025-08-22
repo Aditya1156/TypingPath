@@ -31,10 +31,13 @@ const EmailVerification = ({ onClose, onVerificationComplete, userEmail }: Email
     setSuccess('');
     
     try {
+      console.log('🔄 Attempting to resend verification email...');
       await authService.resendEmailVerification();
+      console.log('✅ Verification email resent successfully');
       setSuccess('Verification email sent! Please check your inbox.');
       setCountdown(60); // 60 second cooldown
     } catch (err: any) {
+      console.error('❌ Failed to resend verification email:', err);
       setError(err.message || 'Failed to resend verification email.');
     } finally {
       setIsResending(false);
@@ -46,16 +49,22 @@ const EmailVerification = ({ onClose, onVerificationComplete, userEmail }: Email
     setError('');
     
     try {
+      console.log('🔍 Checking email verification status...');
       const isVerified = await authService.checkEmailVerification();
+      console.log('📧 Email verification status:', isVerified);
+      
       if (isVerified) {
+        console.log('✅ Email verified successfully!');
         setSuccess('Email verified successfully!');
         setTimeout(() => {
           onVerificationComplete();
         }, 1500);
       } else {
+        console.log('❌ Email not yet verified');
         setError('Email not yet verified. Please check your email and click the verification link.');
       }
     } catch (err: any) {
+      console.error('❌ Error checking verification status:', err);
       setError(err.message || 'Failed to check verification status.');
     } finally {
       setIsChecking(false);

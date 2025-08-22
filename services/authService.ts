@@ -44,11 +44,17 @@ export const authService = {
         console.log('User profile updated with displayName:', name);
         
         // Send email verification
-        await userCredential.user.sendEmailVerification({
-          url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
-          handleCodeInApp: false
-        });
-        console.log('Email verification sent to:', email);
+        try {
+          await userCredential.user.sendEmailVerification({
+            url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+            handleCodeInApp: false
+          });
+          console.log('✅ Email verification sent successfully to:', email);
+        } catch (verificationError: any) {
+          console.error('❌ Failed to send email verification:', verificationError);
+          // Don't throw here - account is still created, just log the error
+          // User can request resend later
+        }
       }
       
       const { uid, displayName, email: userEmail } = userCredential.user!;
