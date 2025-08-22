@@ -202,7 +202,7 @@ const ChapterOverview = ({
             <p className="text-text-secondary">Master typing step-by-step with our structured learning path</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
             {chapters.map((chapter, index) => {
               const totalDrills = chapter.lessons.reduce((acc, lesson) => 
                 acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
@@ -218,8 +218,8 @@ const ChapterOverview = ({
               const isChapterLocked = !isUserPremium && index >= 2;
 
               const chapterCard = (
-                <div className="bg-secondary rounded-xl border border-border-primary overflow-hidden hover:border-accent/50 transition-all transform hover:scale-[1.02] group">
-                  <div className="p-6">
+                <div className="bg-secondary rounded-xl border border-border-primary overflow-hidden hover:border-accent/50 transition-all transform hover:scale-[1.02] group h-full flex flex-col">
+                  <div className="p-6 flex-1 flex flex-col">
                     {/* Chapter Number Badge */}
                     <div className="flex items-start justify-between mb-4">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${
@@ -278,7 +278,7 @@ const ChapterOverview = ({
                     </h3>
                     
                     {/* Chapter Description */}
-                    <p className="text-text-secondary text-sm mb-4 line-clamp-3">
+                    <p className="text-text-secondary text-sm mb-4 line-clamp-3 flex-1">
                       {chapter.description}
                     </p>
 
@@ -316,11 +316,14 @@ const ChapterOverview = ({
                       </div>
                     )}
 
+                    {/* Spacer to push button to bottom */}
+                    <div className="flex-grow"></div>
+
                     {/* Action Button */}
                     <button
                       onClick={() => !isChapterLocked && onSelectChapter(chapter.id)}
                       disabled={isChapterLocked}
-                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all mt-auto ${
                         isChapterLocked
                           ? 'bg-tertiary text-text-secondary cursor-not-allowed'
                           : progressPercentage === 100
