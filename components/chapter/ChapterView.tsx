@@ -29,6 +29,7 @@ const ChapterView = ({
   onNavigateChapter
 }: ChapterViewProps) => {
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { user } = useAuth();
   
   // Use consistent premium check logic (same as PremiumGuard)
@@ -70,7 +71,7 @@ const ChapterView = ({
     <div className="min-h-screen bg-primary">
       {/* Header */}
       <header className="bg-secondary border-b border-border-primary sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -83,6 +84,21 @@ const ChapterView = ({
                 </svg>
                 All Chapters
               </button>
+              
+              {/* Sidebar Toggle Button */}
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="flex items-center gap-2 px-3 py-2 bg-tertiary hover:bg-accent/10 border border-border-primary rounded-lg text-text-secondary hover:text-accent transition-all"
+                title="Toggle chapter navigation"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="6" x2="21" y2="6"/>
+                  <line x1="3" y1="12" x2="21" y2="12"/>
+                  <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+                Chapters
+              </button>
+              
               <div className="h-6 w-px bg-border-primary"></div>
               <div>
                 <h1 className="text-xl font-bold text-text-primary">{chapter.name}</h1>
@@ -129,88 +145,118 @@ const ChapterView = ({
         </div>
       </header>
 
-      <div className="flex">
-        {/* Chapter Navigation Sidebar */}
-        <aside className="w-80 bg-secondary border-r border-border-primary h-[calc(100vh-80px)] overflow-y-auto sticky top-20">
-          <div className="p-6">
-            <h3 className="text-lg font-bold text-text-primary mb-4">All Chapters</h3>
-            <div className="space-y-2">
-              {chapters.map((chap, index) => {
-                const isCurrentChapter = chap.id === chapter.id;
-                const isLocked = !isUserPremium && index >= 2;
-                
-                const chapterTotalDrills = chap.lessons.reduce((acc, lesson) => 
-                  acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
-                );
-                const chapterCompletedDrills = chap.lessons.reduce((acc, lesson) => {
-                  if (lesson.type === 'test') {
-                    return acc + lesson.texts.filter((_, idx) => progress[getDrillId(lesson, idx)]).length;
-                  }
-                  return acc;
-                }, 0);
-                const chapterProgress = chapterTotalDrills > 0 ? Math.round((chapterCompletedDrills / chapterTotalDrills) * 100) : 0;
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-primary/80 backdrop-blur-sm z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
-                return (
-                  <button
-                    key={chap.id}
-                    onClick={() => !isLocked && onNavigateChapter(chap.id)}
-                    disabled={isLocked}
-                    className={`w-full text-left p-4 rounded-lg border transition-all ${
-                      isCurrentChapter
-                        ? 'bg-accent/10 border-accent text-accent'
-                        : isLocked
-                        ? 'bg-tertiary/50 border-border-primary text-text-secondary cursor-not-allowed opacity-60'
-                        : 'bg-tertiary border-border-primary text-text-primary hover:bg-accent/5 hover:border-accent/50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-sm mb-1">{chap.name.replace(/^Chapter \d+:\s*/, '')}</h4>
-                        <p className="text-xs opacity-75 line-clamp-2">{chap.description}</p>
-                      </div>
-                      {isLocked && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-secondary/50 flex-shrink-0 ml-2">
-                          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-                          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                        </svg>
-                      )}
-                    </div>
-                    {!isLocked && chapterTotalDrills > 0 && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <div className="flex-1 bg-primary rounded-full h-1.5">
-                          <div 
-                            className="bg-current h-1.5 rounded-full transition-all duration-300"
-                            style={{ width: `${chapterProgress}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-medium">{chapterProgress}%</span>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Upgrade CTA for locked chapters */}
-            {!isUserPremium && (
-              <div className="mt-6 p-4 bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 rounded-lg">
-                <h4 className="font-semibold text-accent mb-2">Unlock All Chapters</h4>
-                <p className="text-xs text-text-secondary mb-3">
-                  Get access to all {chapters.length} chapters and advanced features.
-                </p>
-                <button
-                  onClick={onUpgrade}
-                  className="w-full px-3 py-2 bg-accent text-primary text-sm font-semibold rounded-lg hover:bg-accent/90 transition-colors"
-                >
-                  Upgrade Now
-                </button>
-              </div>
-            )}
+      {/* Collapsible Chapter Navigation Sidebar */}
+      <aside className={`fixed left-0 top-20 h-[calc(100vh-80px)] w-80 bg-secondary border-r border-border-primary overflow-y-auto z-50 transform transition-transform duration-300 ease-in-out ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold text-text-primary">All Chapters</h3>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1 text-text-secondary hover:text-accent transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18"/>
+                <path d="M6 6l12 12"/>
+              </svg>
+            </button>
           </div>
-        </aside>
+          
+          <div className="space-y-2">
+            {chapters.map((chap, index) => {
+              const isCurrentChapter = chap.id === chapter.id;
+              const isLocked = !isUserPremium && index >= 2;
+              
+              const chapterTotalDrills = chap.lessons.reduce((acc, lesson) => 
+                acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
+              );
+              const chapterCompletedDrills = chap.lessons.reduce((acc, lesson) => {
+                if (lesson.type === 'test') {
+                  return acc + lesson.texts.filter((_, idx) => progress[getDrillId(lesson, idx)]).length;
+                }
+                return acc;
+              }, 0);
+              const chapterProgress = chapterTotalDrills > 0 ? Math.round((chapterCompletedDrills / chapterTotalDrills) * 100) : 0;
 
-        {/* Main Content */}
-        <main className="flex-1 max-w-4xl mx-auto px-6 py-8">
+              return (
+                <button
+                  key={chap.id}
+                  onClick={() => {
+                    if (!isLocked) {
+                      onNavigateChapter(chap.id);
+                      setIsSidebarOpen(false); // Close sidebar after navigation
+                    }
+                  }}
+                  disabled={isLocked}
+                  className={`w-full text-left p-4 rounded-lg border transition-all ${
+                    isCurrentChapter
+                      ? 'bg-accent/10 border-accent text-accent'
+                      : isLocked
+                      ? 'bg-tertiary/50 border-border-primary text-text-secondary cursor-not-allowed opacity-60'
+                      : 'bg-tertiary border-border-primary text-text-primary hover:bg-accent/5 hover:border-accent/50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-sm mb-1">{chap.name.replace(/^Chapter \d+:\s*/, '')}</h4>
+                      <p className="text-xs opacity-75 line-clamp-2">{chap.description}</p>
+                    </div>
+                    {isLocked && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-text-secondary/50 flex-shrink-0 ml-2">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                      </svg>
+                    )}
+                  </div>
+                  {!isLocked && chapterTotalDrills > 0 && (
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 bg-primary rounded-full h-1.5">
+                        <div 
+                          className="bg-current h-1.5 rounded-full transition-all duration-300"
+                          style={{ width: `${chapterProgress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-medium">{chapterProgress}%</span>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Upgrade CTA for locked chapters */}
+          {!isUserPremium && (
+            <div className="mt-6 p-4 bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 rounded-lg">
+              <h4 className="font-semibold text-accent mb-2">Unlock All Chapters</h4>
+              <p className="text-xs text-text-secondary mb-3">
+                Get access to all {chapters.length} chapters and advanced features.
+              </p>
+              <button
+                onClick={() => {
+                  onUpgrade?.();
+                  setIsSidebarOpen(false);
+                }}
+                className="w-full px-3 py-2 bg-accent text-primary text-sm font-semibold rounded-lg hover:bg-accent/90 transition-colors"
+              >
+                Upgrade Now
+              </button>
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex">
+        {/* Main Content - Now Full Width */}
+        <main className="flex-1 max-w-6xl mx-auto px-6 py-8">
           {/* Chapter Content */}
           <div className="space-y-6">
             {/* Chapter Header */}
