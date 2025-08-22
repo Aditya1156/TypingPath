@@ -42,10 +42,10 @@ const ChapterView = ({
 
   // Calculate chapter progress
   const totalDrills = chapter.lessons.reduce((acc, lesson) => 
-    acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
+    acc + (lesson.texts?.length || 0), 0
   );
   const completedDrills = chapter.lessons.reduce((acc, lesson) => {
-    if (lesson.type === 'test') {
+    if (lesson.texts) {
       return acc + lesson.texts.filter((_, index) => progress[getDrillId(lesson, index)]).length;
     }
     return acc;
@@ -177,10 +177,10 @@ const ChapterView = ({
               const isLocked = !isUserPremium && index >= 2;
               
               const chapterTotalDrills = chap.lessons.reduce((acc, lesson) => 
-                acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
+                acc + (lesson.texts?.length || 0), 0
               );
               const chapterCompletedDrills = chap.lessons.reduce((acc, lesson) => {
-                if (lesson.type === 'test') {
+                if (lesson.texts) {
                   return acc + lesson.texts.filter((_, idx) => progress[getDrillId(lesson, idx)]).length;
                 }
                 return acc;

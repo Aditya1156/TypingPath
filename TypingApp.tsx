@@ -580,7 +580,7 @@ const TypingApp = ({ onGoToLanding, onShowModal }: { onGoToLanding: () => void; 
                 <span className="text-accent">Dashboard</span>
               </nav>
             </div>
-            <Dashboard progress={progress} isProgressLoaded={isProgressLoaded} onSelectDrill={handleSelectDrill} onUpgrade={handleUpgrade} onSelectChapter={handleSelectChapter} />
+            <Dashboard progress={progress} isProgressLoaded={isProgressLoaded} onSelectDrill={handleSelectDrill} onUpgrade={handleUpgrade} onSelectChapter={handleSelectChapter} chapters={chapters} />
           </div>
         );
       case 'test':

@@ -1,14 +1,15 @@
 import { memo } from 'react';
-import type { Progress } from '../../types';
-import { getOverallProgress, getChapterProgress } from '../../utils/helpers';
+import type { Progress, Chapter } from '../../types';
+import { getDrillId } from '../../utils/helpers';
 
 interface CurriculumProgressProps {
   progress: Progress;
   isProgressLoaded: boolean;
   onSelectChapter?: (chapterNumber: number) => void;
+  chapters?: Chapter[]; // Add chapters as optional prop to get real data
 }
 
-const CurriculumProgress = memo(({ progress, isProgressLoaded, onSelectChapter }: CurriculumProgressProps) => {
+const CurriculumProgress = memo(({ progress, isProgressLoaded, onSelectChapter, chapters = [] }: CurriculumProgressProps) => {
   if (!isProgressLoaded) {
     return (
       <div className="bg-secondary rounded-lg p-6 border border-border-primary">
@@ -23,17 +24,92 @@ const CurriculumProgress = memo(({ progress, isProgressLoaded, onSelectChapter }
     );
   }
 
-  const overallStats = getOverallProgress(progress);
-
-  // Get chapter completion data for visualization
-  const chapterData = Array.from({ length: 30 }, (_, i) => {
-    const chapterNumber = i + 1;
-    const chapterProgress = getChapterProgress(chapterNumber, progress);
+  // Calculate overall statistics from actual chapter data
+  const totalChapters = chapters.length || 30; // Fallback to 30 if no chapters provided
+  const totalDrills = chapters.reduce((acc, chapter) => 
+    acc + chapter.lessons.reduce((lessonAcc, lesson) => 
+      lessonAcc + (lesson.texts?.length || 0), 0
+    ), 0
+  ) || 450; // Fallback if no chapters provided
+  
+  const totalCompletedDrills = Object.keys(progress).length;
+  const totalMasteredDrills = Object.values(progress).filter((p: any) => p.tier === 'mastered').length;
+  
+  // Calculate chapter-based statistics
+  let completedChapters = 0;
+  let masteredChapters = 0;
+  
+  const chapterData = chapters.map((chapter, index) => {
+    const chapterTotalDrills = chapter.lessons.reduce((acc, lesson) => 
+      acc + (lesson.texts?.length || 0), 0
+    );
+    const chapterCompletedDrills = chapter.lessons.reduce((acc, lesson) => {
+      if (lesson.texts) {
+        return acc + lesson.texts.filter((_, textIndex) => progress[getDrillId(lesson, textIndex)]).length;
+      }
+      return acc;
+    }, 0);
+    const chapterMasteredDrills = chapter.lessons.reduce((acc, lesson) => {
+      if (lesson.texts) {
+        return acc + lesson.texts.filter((_, textIndex) => 
+          progress[getDrillId(lesson, textIndex)]?.tier === 'mastered'
+        ).length;
+      }
+      return acc;
+    }, 0);
+    
+    const completionPercentage = chapterTotalDrills > 0 ? Math.round((chapterCompletedDrills / chapterTotalDrills) * 100) : 0;
+    const masteryPercentage = chapterTotalDrills > 0 ? Math.round((chapterMasteredDrills / chapterTotalDrills) * 100) : 0;
+    const isCompleted = chapterCompletedDrills === chapterTotalDrills;
+    const isMastered = chapterMasteredDrills === chapterTotalDrills;
+    
+    if (isCompleted) completedChapters++;
+    if (isMastered) masteredChapters++;
+    
     return {
-      number: chapterNumber,
-      ...chapterProgress
+      number: index + 1,
+      totalDrills: chapterTotalDrills,
+      completedDrills: chapterCompletedDrills,
+      masteredDrills: chapterMasteredDrills,
+      completionPercentage,
+      masteryPercentage,
+      isCompleted,
+      isMastered
     };
   });
+  
+  // If no chapters provided, create fallback data
+  if (chapters.length === 0) {
+    for (let i = 1; i <= 30; i++) {
+      const chapterDrills = Object.keys(progress).filter(drillId => 
+        drillId.startsWith(`${i}-`)
+      );
+      const totalDrillsInChapter = 15; // Fallback assumption
+      const completedDrillsInChapter = chapterDrills.length;
+      const masteredDrillsInChapter = chapterDrills.filter(drillId => 
+        progress[drillId]?.tier === 'mastered'
+      ).length;
+      
+      if (completedDrillsInChapter === totalDrillsInChapter) completedChapters++;
+      if (masteredDrillsInChapter === totalDrillsInChapter) masteredChapters++;
+      
+      chapterData.push({
+        number: i,
+        totalDrills: totalDrillsInChapter,
+        completedDrills: completedDrillsInChapter,
+        masteredDrills: masteredDrillsInChapter,
+        completionPercentage: Math.round((completedDrillsInChapter / totalDrillsInChapter) * 100),
+        masteryPercentage: Math.round((masteredDrillsInChapter / totalDrillsInChapter) * 100),
+        isCompleted: completedDrillsInChapter === totalDrillsInChapter,
+        isMastered: masteredDrillsInChapter === totalDrillsInChapter
+      });
+    }
+  }
+  
+  const overallCompletionPercentage = totalDrills > 0 ? Math.round((totalCompletedDrills / totalDrills) * 100) : 0;
+  const overallMasteryPercentage = totalDrills > 0 ? Math.round((totalMasteredDrills / totalDrills) * 100) : 0;
+  const isFullyCompleted = completedChapters === totalChapters;
+  const isFullyMastered = masteredChapters === totalChapters;
 
   return (
     <div className="bg-secondary rounded-lg p-6 border border-border-primary">
@@ -42,31 +118,31 @@ const CurriculumProgress = memo(({ progress, isProgressLoaded, onSelectChapter }
       {/* Overall Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-primary p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-accent">{overallStats.overallCompletionPercentage}%</div>
+          <div className="text-2xl font-bold text-accent">{overallCompletionPercentage}%</div>
           <div className="text-sm text-text-secondary">Overall Progress</div>
           <div className="text-xs text-text-secondary mt-1">
-            {overallStats.totalCompletedDrills} / {overallStats.totalDrills} drills
+            {totalCompletedDrills} / {totalDrills} drills
           </div>
         </div>
         
         <div className="bg-primary p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-green-400">{overallStats.overallMasteryPercentage}%</div>
+          <div className="text-2xl font-bold text-green-400">{overallMasteryPercentage}%</div>
           <div className="text-sm text-text-secondary">Mastery Level</div>
           <div className="text-xs text-text-secondary mt-1">
-            {overallStats.totalMasteredDrills} drills mastered
+            {totalMasteredDrills} drills mastered
           </div>
         </div>
         
         <div className="bg-primary p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-blue-400">{overallStats.completedChapters}</div>
+          <div className="text-2xl font-bold text-blue-400">{completedChapters}</div>
           <div className="text-sm text-text-secondary">Chapters Done</div>
           <div className="text-xs text-text-secondary mt-1">
-            of {overallStats.totalChapters} chapters
+            of {totalChapters} chapters
           </div>
         </div>
         
         <div className="bg-primary p-4 rounded-lg text-center">
-          <div className="text-2xl font-bold text-purple-400">{overallStats.masteredChapters}</div>
+          <div className="text-2xl font-bold text-purple-400">{masteredChapters}</div>
           <div className="text-sm text-text-secondary">Mastered</div>
           <div className="text-xs text-text-secondary mt-1">
             chapters complete
@@ -75,29 +151,29 @@ const CurriculumProgress = memo(({ progress, isProgressLoaded, onSelectChapter }
       </div>
 
       {/* Achievement Badges */}
-      {overallStats.overallCompletionPercentage > 0 && (
+      {overallCompletionPercentage > 0 && (
         <div className="mb-6">
           <h4 className="text-lg font-semibold text-text-primary mb-3">Achievements</h4>
           <div className="flex flex-wrap gap-2">
-            {overallStats.overallCompletionPercentage >= 10 && (
+            {overallCompletionPercentage >= 10 && (
               <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm">🚀 Getting Started</span>
             )}
-            {overallStats.overallCompletionPercentage >= 25 && (
+            {overallCompletionPercentage >= 25 && (
               <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm">📚 Quarter Master</span>
             )}
-            {overallStats.overallCompletionPercentage >= 50 && (
+            {overallCompletionPercentage >= 50 && (
               <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-sm">⚡ Halfway Hero</span>
             )}
-            {overallStats.overallCompletionPercentage >= 75 && (
+            {overallCompletionPercentage >= 75 && (
               <span className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm">🎯 Expert Typist</span>
             )}
-            {overallStats.overallCompletionPercentage >= 90 && (
+            {overallCompletionPercentage >= 90 && (
               <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm">👑 Near Mastery</span>
             )}
-            {overallStats.isFullyCompleted && (
+            {isFullyCompleted && (
               <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-sm">🏆 CURRICULUM COMPLETE</span>
             )}
-            {overallStats.isFullyMastered && (
+            {isFullyMastered && (
               <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm">👑 ULTIMATE MASTER</span>
             )}
           </div>

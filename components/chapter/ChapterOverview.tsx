@@ -205,10 +205,10 @@ const ChapterOverview = ({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
             {chapters.map((chapter, index) => {
               const totalDrills = chapter.lessons.reduce((acc, lesson) => 
-                acc + (lesson.type === 'test' ? lesson.texts.length : 0), 0
+                acc + (lesson.texts?.length || 0), 0
               );
               const completedDrills = chapter.lessons.reduce((acc, lesson) => {
-                if (lesson.type === 'test') {
+                if (lesson.texts) {
                   return acc + lesson.texts.filter((_, drillIndex) => progress[getDrillId(lesson, drillIndex)]).length;
                 }
                 return acc;
@@ -413,7 +413,7 @@ const ChapterOverview = ({
                     {/* Progress straight line segments - dynamically colored and aligned */}
                     {isProgressLoaded && chapters.map((chapter, index) => {
                       const isCompleted = chapter.lessons.every(lesson => 
-                        lesson.type === 'guide' || lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
+                        lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
                       );
                       
                       if (index === 0) return null; // No line before first chapter
@@ -426,7 +426,7 @@ const ChapterOverview = ({
                       // Previous chapter completion status
                       const prevChapter = chapters[index - 1];
                       const isPrevCompleted = prevChapter.lessons.every(lesson => 
-                        lesson.type === 'guide' || lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
+                        lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
                       );
                       
                       // Only show segment if previous chapter is completed or current is in progress
@@ -458,7 +458,7 @@ const ChapterOverview = ({
                 <div className="flex gap-8 px-4">
                   {chapters.map((chapter, index) => {
                     const isCompleted = isProgressLoaded && chapter.lessons.every(lesson => 
-                      lesson.type === 'guide' || lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
+                      lesson.texts?.every((_, i) => progress[getDrillId(lesson, i)])
                     );
                     const isLocked = !isUserPremium && index >= 2;
                     
@@ -549,7 +549,7 @@ const ChapterOverview = ({
               <h4 className="text-lg font-semibold text-text-primary">Learning Progress</h4>
               <span className="text-accent font-bold">
                 {isProgressLoaded ? 
-                  `${chapters.filter(c => c.lessons.every(l => l.type === 'guide' || l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length} / ${chapters.length}` 
+                  `${chapters.filter(c => c.lessons.every(l => l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length} / ${chapters.length}` 
                   : '0 / ' + chapters.length
                 } chapters completed
               </span>
@@ -559,7 +559,7 @@ const ChapterOverview = ({
               <div className="p-4 bg-secondary rounded-lg">
                 <div className="text-2xl font-bold text-success">
                   {isProgressLoaded ? 
-                    chapters.filter(c => c.lessons.every(l => l.type === 'guide' || l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length
+                    chapters.filter(c => c.lessons.every(l => l.texts?.every((_, i) => progress[getDrillId(l, i)]))).length
                     : 0
                   }
                 </div>
