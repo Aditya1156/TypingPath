@@ -5,7 +5,7 @@ import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import VerifyEmailPage from './components/VerifyEmailPage';
-import FirebaseDiagnostic from './components/FirebaseDiagnostic';
+// import GoogleAuthDebug from './components/GoogleAuthDebug'; // Temporarily disabled
 
 import { useAuth } from './context/AuthContext';
 import { useSettings } from './context/SettingsContext';
@@ -171,7 +171,6 @@ const App = () => {
     <ErrorBoundary>
       <TimerProvider>
         <ToastContainer />
-        <FirebaseDiagnostic />
         {view === 'verify-email' ? (
           <VerifyEmailPage />
         ) : view === 'landing' ? (
@@ -185,6 +184,8 @@ const App = () => {
         <Suspense fallback={<LoadingSpinner />}>
           {renderModal()}
         </Suspense>
+        {/* Debug component temporarily disabled - Google auth is working */}
+        {/* <GoogleAuthDebug /> */}
       </TimerProvider>
     </ErrorBoundary>
   );

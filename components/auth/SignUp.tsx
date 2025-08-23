@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../LoadingSpinner';
 import EmailVerification from './EmailVerification';
@@ -21,11 +21,31 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
   const [userEmail, setUserEmail] = useState('');
   const { signUp, signInWithGoogle } = useAuth();
 
+  // Listen for successful Google authentication to close modal
+  useEffect(() => {
+    const handleAuthSuccess = (event: CustomEvent) => {
+      const { provider } = event.detail;
+      if (provider === 'google') {
+        // Clear loading states and close modal
+        setIsGoogleLoading(false);
+        setIsLoading(false);
+        if (onSignUpSuccess) {
+          onSignUpSuccess();
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('authSuccess', handleAuthSuccess as EventListener);
+    return () => {
+      window.removeEventListener('authSuccess', handleAuthSuccess as EventListener);
+    };
+  }, [onClose, onSignUpSuccess]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    console.log('🔥 Starting sign-up process...');
     
     // SECURITY: Input validation and sanitization
     const sanitizedName = sanitizeInput(name);
@@ -107,15 +127,46 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
     );
   }
   
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setError('');
-    // Set flag for redirect handling
-    secureSessionStorage.set('signingIn', 'true');
     setIsGoogleLoading(true);
-    signInWithGoogle().catch((err) => {
-      setError(err.message || 'Failed to start Google Sign-In.');
+    
+    try {
+      await signInWithGoogle();
+      
+      // For popup flow (localhost), the auth completes immediately
+      // Loading state will be cleared by the authSuccess event listener
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to start Google Sign-In.';
+      
+      // Check if it's an existing account error
+      if (errorMessage.includes('already exists')) {
+        setError(errorMessage);
+        // Add helpful button to switch to sign-in
+        setTimeout(() => {
+          const existingAccountDiv = document.createElement('div');
+          existingAccountDiv.innerHTML = `
+            <button 
+              id="switch-to-signin-btn" 
+              class="w-full mt-2 px-4 py-2 bg-accent/10 border border-accent/30 text-accent rounded-md hover:bg-accent/20 transition-colors text-sm font-medium"
+            >
+              Switch to Sign In
+            </button>
+          `;
+          const errorDiv = document.querySelector('.text-danger')?.parentElement;
+          if (errorDiv && !document.getElementById('switch-to-signin-btn')) {
+            errorDiv.appendChild(existingAccountDiv);
+            document.getElementById('switch-to-signin-btn')?.addEventListener('click', () => {
+              onSwitchToSignIn();
+            });
+          }
+        }, 100);
+      } else {
+        setError(errorMessage);
+      }
+      
       setIsGoogleLoading(false);
-    });
+    }
   };
 
   return (

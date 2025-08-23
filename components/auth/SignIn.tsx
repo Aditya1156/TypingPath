@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../LoadingSpinner';
 import { validateEmail, sanitizeInput, isRateLimited, secureSessionStorage } from '../../utils/security';
@@ -17,6 +17,28 @@ const SignIn = ({ onClose, onSwitchToSignUp, onSignInSuccess }: SignInProps) => 
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
+
+  // Listen for successful Google authentication to close modal
+  useEffect(() => {
+    const handleAuthSuccess = (event: CustomEvent) => {
+      const { provider } = event.detail;
+      if (provider === 'google') {
+        // Clear loading states and close modal
+        setIsGoogleLoading(false);
+        setIsLoading(false);
+        if (onSignInSuccess) {
+          onSignInSuccess();
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('authSuccess', handleAuthSuccess as EventListener);
+    return () => {
+      window.removeEventListener('authSuccess', handleAuthSuccess as EventListener);
+    };
+  }, [onClose, onSignInSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,13 +94,11 @@ const SignIn = ({ onClose, onSwitchToSignUp, onSignInSuccess }: SignInProps) => 
     setIsGoogleLoading(true);
     
     try {
-      // Set flag for redirect handling
-      secureSessionStorage.set('signingIn', 'true');
       await signInWithGoogle();
-      // The redirect will happen automatically, and the result will be handled by AuthContext
+      
+      // For popup flow (localhost), the auth completes immediately
+      // Loading state will be cleared by the authSuccess event listener
     } catch (err: any) {
-      // Clear the signing in flag on error
-      secureSessionStorage.remove('signingIn');
       setError(err.message || 'Failed to start Google Sign-In. Please try again.');
       setIsGoogleLoading(false);
     }

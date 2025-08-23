@@ -11,7 +11,7 @@ interface ProfileProps {
 }
 
 const Profile = ({ onClose }: ProfileProps) => {
-  const { user, updateProfile, updatePassword } = useAuth();
+  const { user, updateProfile, updatePassword, isGoogleUser: checkIsGoogleUser, hasPasswordLinked } = useAuth();
   const [isEditingName, setIsEditingName] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showSignOutConfirmation, setShowSignOutConfirmation] = useState(false);
@@ -62,9 +62,17 @@ const Profile = ({ onClose }: ProfileProps) => {
       return;
     }
 
+    // For users with existing passwords, require current password
+    if (hasLinkedPassword && !currentPassword) {
+      setError('Please enter your current password.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      await updatePassword(currentPassword, newPassword);
+      // Pass empty string for current password if Google user without linked password
+      const currentPwd = hasLinkedPassword ? currentPassword : '';
+      await updatePassword(currentPwd, newPassword);
       setIsChangingPassword(false);
       setCurrentPassword('');
       setNewPassword('');
@@ -92,9 +100,10 @@ const Profile = ({ onClose }: ProfileProps) => {
   
   if (!user) return null;
 
-  // Check if user signed up with Google (no password)
-  const isGoogleUser = user.email && !currentPassword && user.uid !== 'guest';
-  const canChangePassword = !isGoogleUser || user.email;
+  // Check if user is a Google user and whether they have a linked password
+  const isGoogleAccount = checkIsGoogleUser(user);
+  const hasLinkedPassword = hasPasswordLinked(user);
+  const canChangePassword = !isGoogleAccount || hasLinkedPassword;
 
   return (
     <div 
@@ -187,21 +196,29 @@ const Profile = ({ onClose }: ProfileProps) => {
                     onClick={() => setIsChangingPassword(true)}
                     className="text-accent hover:text-accent/80 text-sm font-medium"
                   >
-                    Change
+                    {isGoogleAccount && !hasLinkedPassword ? 'Add Password' : 'Change'}
                   </button>
                 )}
               </div>
               
+              {isGoogleAccount && !hasLinkedPassword && !isChangingPassword && (
+                <div className="text-sm text-text-secondary bg-tertiary p-3 rounded-md">
+                  You signed in with Google. Add a password to enable email/password sign-in as an alternative.
+                </div>
+              )}
+              
               {isChangingPassword ? (
                 <form onSubmit={handleUpdatePassword} className="space-y-3">
-                  <input
-                    type="password"
-                    placeholder="Current password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full px-3 py-2 bg-tertiary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent focus:outline-none"
-                    required
-                  />
+                  {hasLinkedPassword && (
+                    <input
+                      type="password"
+                      placeholder="Current password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="w-full px-3 py-2 bg-tertiary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent focus:outline-none"
+                      required
+                    />
+                  )}
                   <input
                     type="password"
                     placeholder="New password"
@@ -224,7 +241,7 @@ const Profile = ({ onClose }: ProfileProps) => {
                       disabled={isLoading}
                       className="flex-1 px-3 py-2 bg-accent text-primary rounded-md hover:bg-accent/80 focus:outline-none focus:ring-2 focus:ring-accent disabled:opacity-50 text-sm font-medium"
                     >
-                      {isLoading ? <LoadingSpinner /> : 'Update Password'}
+                      {isLoading ? <LoadingSpinner /> : (isGoogleAccount && !hasLinkedPassword ? 'Add Password' : 'Update Password')}
                     </button>
                     <button
                       type="button"

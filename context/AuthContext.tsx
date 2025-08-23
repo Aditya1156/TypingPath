@@ -24,6 +24,14 @@ interface AuthContextType {
   sendEmailVerification: () => Promise<void>;
   checkEmailVerification: () => Promise<boolean>;
   resendEmailVerification: () => Promise<void>;
+  // Provider detection helpers
+  getProvider: (user: any) => string | null;
+  isGoogleUser: (user: any) => boolean;
+  needsEmailVerification: (user: any) => boolean;
+  // Password management for Google users
+  addPasswordToAccount: (password: string) => Promise<void>;
+  hasPasswordLinked: (user: any) => boolean;
+  sendPasswordResetEmail: (email: string) => Promise<void>;
   // Enhanced session management
   getSessionConfig: () => SessionConfig;
   updateSessionConfig: (config: Partial<SessionConfig>) => Promise<void>;
@@ -129,9 +137,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
           // Show success message for new users (both Google and email/password)
           const wasSigningIn = secureSessionStorage.get('signingIn');
-          if (wasSigningIn) {
+          const wasGoogleSignIn = secureSessionStorage.get('googleSignInPending');
+          const isGoogleUser = firebaseUser.providerData.some(provider => provider?.providerId === 'google.com');
+          const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          
+          // For popup flow on localhost, we detect Google users directly without flags
+          const shouldShowWelcome = wasSigningIn || wasGoogleSignIn || (isLocalhost && isGoogleUser && !user);
+          
+          if (shouldShowWelcome) {
             const displayName = userData.name || userData.email?.split('@')[0] || 'User';
-            addToast(`Welcome, ${displayName}!`, 'success');
+            
+            // Different messages for different sign-in methods
+            if (wasGoogleSignIn || (isLocalhost && isGoogleUser)) {
+              addToast(`Welcome, ${displayName}! Successfully signed in with Google.`, 'success');
+              secureSessionStorage.remove('googleSignInPending');
+              
+              // For popup flow, trigger modal close immediately
+              if (isLocalhost) {
+                // Dispatch custom event to close auth modals
+                window.dispatchEvent(new CustomEvent('authSuccess', { 
+                  detail: { provider: 'google', user: userData } 
+                }));
+              }
+            } else {
+              addToast(`Welcome, ${displayName}!`, 'success');
+            }
             
             // Don't remove the signingIn flag here - let App.tsx handle it for proper redirect
           }
@@ -185,19 +215,51 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(false);
     });
 
-    // Handle redirect result with better error handling
-    auth.getRedirectResult().then((result) => {
-      if (result && result.user) {
-        // Success message is now handled in onAuthStateChanged
-        console.log('Google Sign-In successful:', result.user.displayName || result.user.email);
-        // Don't remove signingIn flag here - let App.tsx handle the redirect
-      }
-    }).catch(error => {
-      console.error("Redirect result error:", error);
-      // Only clear the signing in flag on error
-      secureSessionStorage.remove('signingIn');
-      addToast(error.message || 'Failed to sign in with Google.', 'error');
-    });
+    // Enhanced redirect result handling for Google Sign-In (production only)
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (!isLocalhost) {
+      auth.getRedirectResult().then((result) => {
+        if (result && result.user) {
+          console.log('Google Sign-In redirect successful:', result.user.displayName || result.user.email);
+          
+          // Clear Google sign-in pending flag
+          secureSessionStorage.remove('googleSignInPending');
+          
+          // The user data will be handled by onAuthStateChanged above
+          // Success message will also be shown there
+          
+          // Check if we have the additional info (for new users)
+          if (result.additionalUserInfo?.isNewUser) {
+            console.log('New Google user detected, account created successfully');
+          } else {
+            console.log('Existing Google user signed in successfully');
+          }
+        } else {
+          // Check if we were expecting a Google sign-in result
+          const wasGoogleSignInPending = secureSessionStorage.get('googleSignInPending');
+          if (wasGoogleSignInPending) {
+            console.log('Google Sign-In redirect completed but no result found');
+            secureSessionStorage.remove('googleSignInPending');
+          }
+        }
+      }).catch(error => {
+        console.error("Google Sign-In redirect error:", error);
+        
+        // Clear all Google sign-in related flags
+        secureSessionStorage.remove('googleSignInPending');
+        secureSessionStorage.remove('signingIn');
+        
+        // Show user-friendly error message
+        const errorMessage = error.code === 'auth/popup-closed-by-user' 
+          ? 'Sign-in was cancelled.' 
+          : error.message || 'Failed to sign in with Google. Please try again.';
+        
+        addToast(errorMessage, 'error');
+      });
+    } else {
+      console.log('🌐 Localhost detected: Using popup flow, skipping redirect result handling');
+    }
 
     return () => unsubscribe();
   }, [addToast]);
@@ -302,9 +364,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   
   const signInWithGoogle = useCallback(async () => {
     try {
+        // For popup flow (localhost), don't set pending flags since auth is immediate
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (!isLocalhost) {
+          // Only set flags for redirect flow
+          secureSessionStorage.set('googleSignInPending', 'true');
+          secureSessionStorage.set('signingIn', 'true');
+        }
+        
         await authService.signInWithGoogle();
-        // Toast is handled by getRedirectResult
+        // The rest is handled by onAuthStateChanged
     } catch (error: any) {
+        // Clear flags on error
+        secureSessionStorage.remove('googleSignInPending');
+        secureSessionStorage.remove('signingIn');
         addToast(error.message, 'error');
         throw error;
     }
@@ -360,16 +434,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updatePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     try {
-      // First reauthenticate the user
-      await authService.reauthenticate(currentPassword);
-      // Then update the password
-      await authService.updatePassword(newPassword);
-      addToast('Password updated successfully!', 'success');
+      // Check if user is a Google user without a linked password
+      if (user && authService.isGoogleUser(auth.currentUser) && !authService.hasPasswordLinked(auth.currentUser)) {
+        // For Google users without a password, use the addPasswordToAccount method
+        await authService.addPasswordToAccount(newPassword);
+        addToast('Password successfully added to your account!', 'success');
+      } else {
+        // For users with existing passwords, require reauthentication
+        await authService.reauthenticate(currentPassword);
+        await authService.updatePassword(newPassword);
+        addToast('Password updated successfully!', 'success');
+      }
     } catch (error: any) {
       addToast(error.message, 'error');
       throw error;
     }
-  }, [addToast]);
+  }, [addToast, user]);
 
   const upgradeSubscription = useCallback(async (tier: SubscriptionTier, _paymentMethod?: string) => {
     if (!user) {
@@ -771,6 +851,44 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, [addToast]);
 
+  // Provider detection helpers
+  const getProvider = useCallback((user: any) => {
+    return authService.getProvider(user);
+  }, []);
+
+  const isGoogleUser = useCallback((user: any) => {
+    return authService.isGoogleUser(user);
+  }, []);
+
+  const needsEmailVerification = useCallback((user: any) => {
+    return authService.needsEmailVerification(user);
+  }, []);
+
+  // Password management for Google users
+  const addPasswordToAccount = useCallback(async (password: string) => {
+    try {
+      await authService.addPasswordToAccount(password);
+      addToast('Password successfully added to your account!', 'success');
+    } catch (error: any) {
+      addToast(error.message, 'error');
+      throw error;
+    }
+  }, [addToast]);
+
+  const hasPasswordLinked = useCallback((user: any) => {
+    return authService.hasPasswordLinked(user);
+  }, []);
+
+  const sendPasswordResetEmail = useCallback(async (email: string) => {
+    try {
+      await authService.sendPasswordResetEmail(email);
+      addToast('Password reset email sent! Please check your inbox.', 'success');
+    } catch (error: any) {
+      addToast(error.message, 'error');
+      throw error;
+    }
+  }, [addToast]);
+
   // Memoize the context value to prevent unnecessary re-renders
   const value = useMemo(() => ({ 
     user, 
@@ -787,6 +905,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     sendEmailVerification,
     checkEmailVerification,
     resendEmailVerification,
+    // Provider detection helpers
+    getProvider,
+    isGoogleUser,
+    needsEmailVerification,
+    // Password management for Google users
+    addPasswordToAccount,
+    hasPasswordLinked,
+    sendPasswordResetEmail,
     // Enhanced session management
     getSessionConfig,
     updateSessionConfig,
@@ -808,6 +934,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     sendEmailVerification,
     checkEmailVerification,
     resendEmailVerification,
+    getProvider,
+    isGoogleUser,
+    needsEmailVerification,
+    addPasswordToAccount,
+    hasPasswordLinked,
+    sendPasswordResetEmail,
     getSessionConfig,
     updateSessionConfig,
     isDeviceTrusted,
