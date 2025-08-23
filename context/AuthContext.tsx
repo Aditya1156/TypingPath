@@ -159,8 +159,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                   detail: { provider: 'google', user: userData } 
                 }));
               }
+              
+              // Set the signingIn flag for proper redirect handling
+              secureSessionStorage.set('signingIn', 'true');
             } else {
               addToast(`Welcome, ${displayName}!`, 'success');
+              
+              // For email/password signup, also dispatch success event to close modal
+              window.dispatchEvent(new CustomEvent('authSuccess', { 
+                detail: { provider: 'email', user: userData } 
+              }));
             }
             
             // Don't remove the signingIn flag here - let App.tsx handle it for proper redirect
