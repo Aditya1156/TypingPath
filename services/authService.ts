@@ -161,7 +161,7 @@ export const authService = {
           throw new Error('No account found with this email address. Please sign up first or check your email.');
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          throw new Error('Your email or password is incorrect. Please check and try again.');
+          throw new Error('Incorrect password. Please try again or reset your password.');
         case 'auth/invalid-email':
           throw new Error('Please enter a valid email address.');
         case 'auth/too-many-requests':
@@ -273,19 +273,9 @@ export const authService = {
       console.error('Reauthentication error:', error);
       switch (error.code) {
         case 'auth/wrong-password':
-          throw new Error('Your current password is incorrect.');
+          throw new Error('Current password is incorrect.');
         case 'auth/invalid-credential':
-          throw new Error('Your password is incorrect. Please check and try again.');
-        case 'auth/user-mismatch':
-          throw new Error('Your password is incorrect. Please check and try again.');
-        case 'auth/user-not-found':
-          throw new Error('Your account was not found. Please check your credentials.');
-        case 'auth/invalid-email':
-          throw new Error('Your email address is invalid.');
-        case 'auth/user-disabled':
-          throw new Error('Your account has been disabled. Please contact support.');
-        case 'auth/too-many-requests':
-          throw new Error('Too many failed attempts. Please try again later.');
+          throw new Error('Invalid credentials provided.');
         default:
           throw new Error(error.message || 'Failed to verify current password.');
       }
