@@ -434,22 +434,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const updatePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     try {
-      // Check if user is a Google user without a linked password
-      if (user && authService.isGoogleUser(auth.currentUser) && !authService.hasPasswordLinked(auth.currentUser)) {
-        // For Google users without a password, use the addPasswordToAccount method
-        await authService.addPasswordToAccount(newPassword);
-        addToast('Password successfully added to your account!', 'success');
-      } else {
-        // For users with existing passwords, require reauthentication
-        await authService.reauthenticate(currentPassword);
-        await authService.updatePassword(newPassword);
-        addToast('Password updated successfully!', 'success');
-      }
+      // First reauthenticate the user
+      await authService.reauthenticate(currentPassword);
+      // Then update the password
+      await authService.updatePassword(newPassword);
+      addToast('Password updated successfully!', 'success');
     } catch (error: any) {
       addToast(error.message, 'error');
       throw error;
     }
-  }, [addToast, user]);
+  }, [addToast]);
 
   const upgradeSubscription = useCallback(async (tier: SubscriptionTier, _paymentMethod?: string) => {
     if (!user) {
