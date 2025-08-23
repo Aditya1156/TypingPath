@@ -48,7 +48,12 @@ const FirebaseDiagnostic = () => {
     // Test 3: Test email provider availability
     try {
       const providers = await auth.fetchSignInMethodsForEmail('test@example.com');
-      addResult(`✅ Email provider check: ${providers.length} methods available`);
+      if (providers.length === 0) {
+        addResult('❌ CRITICAL: Email/Password authentication is DISABLED in Firebase Console');
+        addResult('🔧 SOLUTION: Go to Firebase Console → Authentication → Sign-in method → Enable Email/Password');
+      } else {
+        addResult(`✅ Email provider check: ${providers.length} methods available`);
+      }
     } catch (error: any) {
       if (error.code === 'auth/invalid-email') {
         addResult('✅ Email provider available (invalid email expected)');
@@ -113,7 +118,7 @@ const FirebaseDiagnostic = () => {
       
       {testResults.some(r => r.includes('❌ CRITICAL')) && (
         <div className="mt-3 p-2 bg-danger/20 border border-danger/30 rounded text-xs text-danger">
-          <strong>Action Required:</strong> Enable Email/Password authentication in Firebase Console
+          <strong>Action Required:</strong> Enable Email/Password authentication in Firebase Console → Authentication → Sign-in method
         </div>
       )}
     </div>

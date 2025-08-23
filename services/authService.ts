@@ -84,7 +84,7 @@ export const authService = {
         case 'auth/weak-password':
           throw new Error('Password should be at least 6 characters long.');
         case 'auth/operation-not-allowed':
-          throw new Error('Email/password accounts are not enabled. Please contact support.');
+          throw new Error('Email/password sign-up is currently disabled. Please contact support or try signing in with Google.');
         case 'auth/network-request-failed':
           throw new Error('Network error. Please check your connection and try again.');
         default:
