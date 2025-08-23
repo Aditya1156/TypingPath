@@ -11,22 +11,49 @@ googleProvider.addScope('email');
 export const authService = {
   signInWithGoogle: async (): Promise<void> => {
     try {
-      // Using signInWithRedirect for better compatibility across environments
-      await auth.signInWithRedirect(googleProvider);
-      // The result will be handled by the onAuthStateChanged listener in AuthContext
+      // Use popup for localhost development, redirect for production
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      
+      if (isLocalhost) {
+        console.log('🌐 Using popup flow for localhost development');
+        const result = await auth.signInWithPopup(googleProvider);
+        console.log('Google Sign-In successful:', result.user?.displayName || result.user?.email);
+        
+        // Check if this was a new user vs existing user
+        if (result.additionalUserInfo?.isNewUser) {
+          console.log('✨ New Google account created successfully');
+        } else {
+          console.log('👋 Existing Google user signed in successfully');
+        }
+      } else {
+        console.log('🌐 Using redirect flow for production');
+        // Using signInWithRedirect for better compatibility across environments
+        await auth.signInWithRedirect(googleProvider);
+        // The result will be handled by the onAuthStateChanged listener in AuthContext
+      }
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
       
-      // Handle specific Firebase auth errors
+      // Handle specific Firebase auth errors with better messages
       switch (error.code) {
+        case 'auth/account-exists-with-different-credential':
+          // This happens when user tries to sign up with Google but email already exists with password
+          const email = error.email;
+          throw new Error(`An account with ${email} already exists. Please sign in with your password instead, or use "Forgot Password" to reset it.`);
         case 'auth/operation-not-allowed':
           throw new Error('Google Sign-In is not enabled. Please contact support.');
         case 'auth/operation-not-supported-in-this-environment':
           throw new Error('Google Sign-In is not supported in this environment.');
         case 'auth/popup-blocked':
           throw new Error('Pop-up was blocked. Please allow pop-ups and try again.');
+        case 'auth/popup-closed-by-user':
+          throw new Error('Sign-in was cancelled. Please try again.');
         case 'auth/cancelled-popup-request':
           throw new Error('Sign-in was cancelled.');
+        case 'auth/unauthorized-domain':
+          throw new Error('This domain is not authorized for Google Sign-In. Please contact support.');
+        case 'auth/credential-already-in-use':
+          throw new Error('This Google account is already linked to another user. Please try a different account.');
         default:
           throw new Error(error.message || 'Failed to start Google Sign-In. Please try again.');
       }
@@ -42,6 +69,19 @@ export const authService = {
       if (userCredential.user) {
         await userCredential.user.updateProfile({ displayName: name });
         console.log('User profile updated with displayName:', name);
+        
+        // Send email verification
+        try {
+          await userCredential.user.sendEmailVerification({
+            url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+            handleCodeInApp: false
+          });
+          console.log('✅ Email verification sent successfully to:', email);
+        } catch (verificationError: any) {
+          console.error('❌ Failed to send email verification:', verificationError);
+          // Don't throw here - account is still created, just log the error
+          // User can request resend later
+        }
       }
       
       const { uid, displayName, email: userEmail } = userCredential.user!;
@@ -121,7 +161,7 @@ export const authService = {
           throw new Error('No account found with this email address. Please sign up first or check your email.');
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          throw new Error('Incorrect password. Please try again or reset your password.');
+          throw new Error('Your email or password is incorrect. Please check and try again.');
         case 'auth/invalid-email':
           throw new Error('Please enter a valid email address.');
         case 'auth/too-many-requests':
@@ -233,11 +273,204 @@ export const authService = {
       console.error('Reauthentication error:', error);
       switch (error.code) {
         case 'auth/wrong-password':
-          throw new Error('Current password is incorrect.');
+          throw new Error('Your current password is incorrect.');
         case 'auth/invalid-credential':
-          throw new Error('Invalid credentials provided.');
+          throw new Error('Your password is incorrect. Please check and try again.');
+        case 'auth/user-mismatch':
+          throw new Error('Your password is incorrect. Please check and try again.');
+        case 'auth/user-not-found':
+          throw new Error('Your account was not found. Please check your credentials.');
+        case 'auth/invalid-email':
+          throw new Error('Your email address is invalid.');
+        case 'auth/user-disabled':
+          throw new Error('Your account has been disabled. Please contact support.');
+        case 'auth/too-many-requests':
+          throw new Error('Too many failed attempts. Please try again later.');
         default:
           throw new Error(error.message || 'Failed to verify current password.');
+      }
+    }
+  },
+
+  // Email verification methods
+  sendEmailVerification: async (): Promise<void> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user is currently signed in');
+      }
+      
+      if (currentUser.emailVerified) {
+        throw new Error('Email is already verified');
+      }
+      
+      await currentUser.sendEmailVerification({
+        url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+        handleCodeInApp: false
+      });
+      
+      console.log('Email verification sent successfully');
+    } catch (error: any) {
+      console.error('Send email verification error:', error);
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          throw new Error('Too many verification emails sent. Please wait before requesting another.');
+        case 'auth/user-not-found':
+          throw new Error('User not found. Please sign up first.');
+        default:
+          throw new Error(error.message || 'Failed to send verification email.');
+      }
+    }
+  },
+
+  checkEmailVerification: async (): Promise<boolean> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        return false;
+      }
+      
+      // Reload user to get latest email verification status
+      await currentUser.reload();
+      return currentUser.emailVerified;
+    } catch (error) {
+      console.error('Check email verification error:', error);
+      return false;
+    }
+  },
+
+  resendEmailVerification: async (): Promise<void> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user is currently signed in');
+      }
+      
+      if (currentUser.emailVerified) {
+        throw new Error('Email is already verified');
+      }
+      
+      await currentUser.sendEmailVerification({
+        url: `${window.location.origin}/verify-email?continueUrl=${encodeURIComponent(window.location.origin)}`,
+        handleCodeInApp: false
+      });
+      
+      console.log('Email verification resent successfully');
+    } catch (error: any) {
+      console.error('Resend email verification error:', error);
+      switch (error.code) {
+        case 'auth/too-many-requests':
+          throw new Error('Too many verification emails sent. Please wait at least 1 minute before requesting another.');
+        default:
+          throw new Error(error.message || 'Failed to resend verification email.');
+      }
+    }
+  },
+
+  /**
+   * Get the authentication provider for a user
+   */
+  getProvider: (user: any): string | null => {
+    if (!user || !user.providerData || user.providerData.length === 0) {
+      return null;
+    }
+    return user.providerData[0]?.providerId || null;
+  },
+
+  /**
+   * Check if user is a Google Sign-In user
+   */
+  isGoogleUser: (user: any): boolean => {
+    return authService.getProvider(user) === 'google.com';
+  },
+
+  /**
+   * Check if user needs email verification
+   * Google users are considered verified by default
+   */
+  needsEmailVerification: (user: any): boolean => {
+    if (!user) return false;
+    
+    // Google users don't need email verification
+    if (authService.isGoogleUser(user)) {
+      return false;
+    }
+    
+    // Email/password users need verification if not already verified
+    return authService.getProvider(user) === 'password' && !user.emailVerified;
+  },
+
+  /**
+   * Add password to Google account (allow Google users to set a password)
+   */
+  addPasswordToAccount: async (password: string): Promise<void> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No user is currently signed in');
+      }
+
+      // Check if user is a Google user
+      if (!authService.isGoogleUser(currentUser)) {
+        throw new Error('This feature is only available for Google sign-in users');
+      }
+
+      // Create email/password credential
+      const credential = firebase.auth.EmailAuthProvider.credential(
+        currentUser.email!,
+        password
+      );
+
+      // Link the credential to the current account
+      await currentUser.linkWithCredential(credential);
+      
+      console.log('Password successfully added to Google account');
+    } catch (error: any) {
+      console.error('Add password error:', error);
+      switch (error.code) {
+        case 'auth/weak-password':
+          throw new Error('Password is too weak. Please choose a stronger password (at least 6 characters).');
+        case 'auth/email-already-in-use':
+          throw new Error('This email is already associated with a password. You can reset your password instead.');
+        case 'auth/credential-already-in-use':
+          throw new Error('A password is already set for this account.');
+        case 'auth/provider-already-linked':
+          throw new Error('This account already has a password. You can change it in settings.');
+        default:
+          throw new Error(error.message || 'Failed to add password to your account.');
+      }
+    }
+  },
+
+  /**
+   * Check if Google user has a password linked
+   */
+  hasPasswordLinked: (user: any): boolean => {
+    if (!user || !user.providerData) return false;
+    return user.providerData.some((provider: any) => provider?.providerId === 'password');
+  },
+
+  /**
+   * Send password reset email (works for both email/password and Google users with linked passwords)
+   */
+  sendPasswordResetEmail: async (email: string): Promise<void> => {
+    try {
+      await auth.sendPasswordResetEmail(email, {
+        url: `${window.location.origin}/`,
+        handleCodeInApp: false,
+      });
+      console.log('Password reset email sent successfully');
+    } catch (error: any) {
+      console.error('Password reset email error:', error);
+      switch (error.code) {
+        case 'auth/user-not-found':
+          throw new Error('No account found with this email address.');
+        case 'auth/invalid-email':
+          throw new Error('Please enter a valid email address.');
+        case 'auth/too-many-requests':
+          throw new Error('Too many password reset requests. Please wait before trying again.');
+        default:
+          throw new Error(error.message || 'Failed to send password reset email.');
       }
     }
   }

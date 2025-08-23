@@ -256,11 +256,11 @@ const ChapterView = ({
 
       <div className="flex">
         {/* Main Content - Now Full Width */}
-        <main className="flex-1 max-w-6xl mx-auto px-6 py-8">
+        <main className="flex-1 max-w-6xl mx-auto px-6 py-8 mt-4">
           {/* Chapter Content */}
           <div className="space-y-6">
             {/* Chapter Header */}
-            <div className="bg-secondary rounded-xl border border-border-primary p-6">
+            <div className="bg-secondary rounded-xl border border-border-primary p-6 shadow-sm">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
                   <h2 className="text-2xl font-bold text-text-primary mb-2">{chapter.name}</h2>

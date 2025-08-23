@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { playSound } from '../utils/helpers';
 import { isPremiumUser } from '../utils/isPremiumUser';
 import PremiumGuard from './PremiumGuard';
+import PasswordManagement from './auth/PasswordManagement';
 import type { Theme, CaretStyle } from '../types';
 
 interface SettingsProps {
@@ -12,7 +13,9 @@ interface SettingsProps {
 }
 
 const Settings = ({ onClose, onUpgrade }: SettingsProps) => {
-  const { user } = useAuth();
+  const { user, isGoogleUser, hasPasswordLinked } = useAuth();
+  const [showPasswordManagement, setShowPasswordManagement] = useState(false);
+  
   // Always use the latest context value and isPremiumUser utility
   const isUserPremium = isPremiumUser(user);
   const { 
@@ -209,7 +212,58 @@ const Settings = ({ onClose, onUpgrade }: SettingsProps) => {
               </div>
             </SettingRow>
           </div>
+
+          {/* Account Section */}
+          {user && user.uid !== 'guest' && (
+            <div className="space-y-4">
+              <SettingRow label="Account Settings">
+                <div className="w-full space-y-3">
+                  <div className="p-3 bg-primary rounded-md">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Account Type</span>
+                      <span className="text-xs px-2 py-1 bg-accent/20 text-accent rounded">
+                        {isGoogleUser(user) ? 'Google Account' : 'Email Account'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-text-secondary">
+                      {user.email}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 bg-primary rounded-md">
+                      <div>
+                        <div className="text-sm font-medium">Password Protection</div>
+                        <div className="text-xs text-text-secondary">
+                          {isGoogleUser(user) && !hasPasswordLinked(user) 
+                            ? 'Add a password for additional sign-in options'
+                            : hasPasswordLinked(user) 
+                            ? 'You can sign in with password or Google'
+                            : 'Email/password authentication'
+                          }
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowPasswordManagement(true)}
+                        className="px-3 py-1 bg-accent/10 text-accent text-xs rounded hover:bg-accent/20 transition-colors"
+                      >
+                        {isGoogleUser(user) && !hasPasswordLinked(user) ? 'Add Password' : 'Manage'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </SettingRow>
+            </div>
+          )}
         </div>
+
+        {/* Password Management Modal */}
+        {showPasswordManagement && user && (
+          <PasswordManagement
+            user={user}
+            onClose={() => setShowPasswordManagement(false)}
+          />
+        )}
       </div>
     </div>
   );
