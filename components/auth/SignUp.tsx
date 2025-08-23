@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../LoadingSpinner';
 import EmailVerification from './EmailVerification';
 import { validateEmail, validatePassword, sanitizeInput, isRateLimited, secureSessionStorage } from '../../utils/security';
-import { testFirebaseAuth } from '../../utils/firebaseTest';
 
 interface SignUpProps {
   onClose: () => void;
@@ -26,9 +25,7 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
     e.preventDefault();
     setError('');
     
-    // Debug: Test Firebase Auth
-    console.log('🔥 Testing Firebase Auth before sign-up...');
-    testFirebaseAuth();
+    console.log('🔥 Starting sign-up process...');
     
     // SECURITY: Input validation and sanitization
     const sanitizedName = sanitizeInput(name);

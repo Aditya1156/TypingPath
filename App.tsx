@@ -5,6 +5,7 @@ import ToastContainer from './components/ToastContainer';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
 import VerifyEmailPage from './components/VerifyEmailPage';
+import FirebaseDiagnostic from './components/FirebaseDiagnostic';
 
 import { useAuth } from './context/AuthContext';
 import { useSettings } from './context/SettingsContext';
@@ -170,6 +171,7 @@ const App = () => {
     <ErrorBoundary>
       <TimerProvider>
         <ToastContainer />
+        <FirebaseDiagnostic />
         {view === 'verify-email' ? (
           <VerifyEmailPage />
         ) : view === 'landing' ? (
