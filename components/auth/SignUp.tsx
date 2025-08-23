@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../LoadingSpinner';
-import EmailVerification from './EmailVerification';
 import { validateEmail, validatePassword, sanitizeInput, isRateLimited, secureSessionStorage } from '../../utils/security';
 
 interface SignUpProps {
@@ -17,18 +16,18 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [showEmailVerification, setShowEmailVerification] = useState(false);
-  const [userEmail, setUserEmail] = useState('');
   const { signUp, signInWithGoogle } = useAuth();
 
-  // Listen for successful Google authentication to close modal
+  // Listen for successful authentication to close modal
   useEffect(() => {
     const handleAuthSuccess = (event: CustomEvent) => {
       const { provider } = event.detail;
-      if (provider === 'google') {
+      if (provider === 'google' || provider === 'email') {
         // Clear loading states and close modal
         setIsGoogleLoading(false);
         setIsLoading(false);
+        
+        // Call the success handler immediately
         if (onSignUpSuccess) {
           onSignUpSuccess();
         } else {
@@ -80,10 +79,12 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
       secureSessionStorage.set('signingIn', 'true');
       await signUp(sanitizedName, sanitizedEmail, sanitizedPassword);
       
-      // Show email verification modal instead of closing immediately
-      setUserEmail(sanitizedEmail);
-      setShowEmailVerification(true);
-      setIsLoading(false);
+      // For regular signup, close modal immediately and let AuthContext handle welcome
+      if (onSignUpSuccess) {
+        onSignUpSuccess();
+      } else {
+        onClose();
+      }
       
     } catch (err: any) {
       secureSessionStorage.remove('signingIn'); // Remove flag on error
@@ -98,35 +99,6 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
     }
   };
 
-  const handleVerificationComplete = () => {
-    setShowEmailVerification(false);
-    if (onSignUpSuccess) {
-      onSignUpSuccess();
-    } else {
-      onClose();
-    }
-  };
-
-  const handleVerificationClose = () => {
-    setShowEmailVerification(false);
-    // Reset form but don't close the main modal
-    setName('');
-    setEmail('');
-    setPassword('');
-    setError('');
-  };
-
-  // Show email verification modal if needed
-  if (showEmailVerification) {
-    return (
-      <EmailVerification
-        onClose={handleVerificationClose}
-        onVerificationComplete={handleVerificationComplete}
-        userEmail={userEmail}
-      />
-    );
-  }
-  
   const handleGoogleSignIn = async () => {
     setError('');
     setIsGoogleLoading(true);
@@ -136,6 +108,11 @@ const SignUp = ({ onClose, onSwitchToSignIn, onSignUpSuccess }: SignUpProps) => 
       
       // For popup flow (localhost), the auth completes immediately
       // Loading state will be cleared by the authSuccess event listener
+      
+      // Add a timeout fallback to clear loading state if event doesn't fire
+      setTimeout(() => {
+        setIsGoogleLoading(false);
+      }, 5000);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to start Google Sign-In.';
       

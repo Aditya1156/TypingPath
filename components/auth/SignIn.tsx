@@ -18,14 +18,16 @@ const SignIn = ({ onClose, onSwitchToSignUp, onSignInSuccess }: SignInProps) => 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
 
-  // Listen for successful Google authentication to close modal
+  // Listen for successful authentication to close modal
   useEffect(() => {
     const handleAuthSuccess = (event: CustomEvent) => {
       const { provider } = event.detail;
-      if (provider === 'google') {
+      if (provider === 'google' || provider === 'email') {
         // Clear loading states and close modal
         setIsGoogleLoading(false);
         setIsLoading(false);
+        
+        // Call the success handler immediately
         if (onSignInSuccess) {
           onSignInSuccess();
         } else {
@@ -98,6 +100,11 @@ const SignIn = ({ onClose, onSwitchToSignUp, onSignInSuccess }: SignInProps) => 
       
       // For popup flow (localhost), the auth completes immediately
       // Loading state will be cleared by the authSuccess event listener
+      
+      // Add a timeout fallback to clear loading state if event doesn't fire
+      setTimeout(() => {
+        setIsGoogleLoading(false);
+      }, 5000);
     } catch (err: any) {
       setError(err.message || 'Failed to start Google Sign-In. Please try again.');
       setIsGoogleLoading(false);

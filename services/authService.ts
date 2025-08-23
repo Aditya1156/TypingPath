@@ -13,6 +13,17 @@ export const authService = {
     try {
       // 🔧 FIX: Use popup flow for all environments (more reliable than redirect)
       console.log('🌐 Using popup flow for Google Sign-In');
+      console.log('🔍 Debug Info:', {
+        hostname: window.location.hostname,
+        origin: window.location.origin,
+        userAgent: navigator.userAgent.substring(0, 50),
+        firebaseConfig: {
+          authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+          projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+          hasApiKey: !!import.meta.env.VITE_FIREBASE_API_KEY
+        }
+      });
+      
       const result = await auth.signInWithPopup(googleProvider);
       console.log('Google Sign-In successful:', result.user?.displayName || result.user?.email);
       
@@ -24,6 +35,12 @@ export const authService = {
       }
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        email: error.email,
+        credential: error.credential
+      });
       
       // Handle specific Firebase auth errors with better messages
       switch (error.code) {
@@ -36,17 +53,21 @@ export const authService = {
         case 'auth/operation-not-supported-in-this-environment':
           throw new Error('Google Sign-In is not supported in this environment.');
         case 'auth/popup-blocked':
-          throw new Error('Pop-up was blocked. Please allow pop-ups and try again.');
+          throw new Error('Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.');
         case 'auth/popup-closed-by-user':
           throw new Error('Sign-in was cancelled. Please try again.');
         case 'auth/cancelled-popup-request':
           throw new Error('Sign-in was cancelled.');
         case 'auth/unauthorized-domain':
-          throw new Error('This domain is not authorized for Google Sign-In. Please contact support.');
+          throw new Error(`This domain (${window.location.hostname}) is not authorized for Google Sign-In. Please contact support.`);
         case 'auth/credential-already-in-use':
           throw new Error('This Google account is already linked to another user. Please try a different account.');
+        case 'auth/network-request-failed':
+          throw new Error('Network error occurred. Please check your internet connection and try again.');
+        case 'auth/internal-error':
+          throw new Error('An internal error occurred. Please try again later.');
         default:
-          throw new Error(error.message || 'Failed to start Google Sign-In. Please try again.');
+          throw new Error(`Google Sign-In failed: ${error.message || 'Unknown error'}. Please try again.`);
       }
     }
   },
