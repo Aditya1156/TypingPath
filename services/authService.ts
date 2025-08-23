@@ -11,25 +11,16 @@ googleProvider.addScope('email');
 export const authService = {
   signInWithGoogle: async (): Promise<void> => {
     try {
-      // Use popup for localhost development, redirect for production
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      // 🔧 FIX: Use popup flow for all environments (more reliable than redirect)
+      console.log('🌐 Using popup flow for Google Sign-In');
+      const result = await auth.signInWithPopup(googleProvider);
+      console.log('Google Sign-In successful:', result.user?.displayName || result.user?.email);
       
-      if (isLocalhost) {
-        console.log('🌐 Using popup flow for localhost development');
-        const result = await auth.signInWithPopup(googleProvider);
-        console.log('Google Sign-In successful:', result.user?.displayName || result.user?.email);
-        
-        // Check if this was a new user vs existing user
-        if (result.additionalUserInfo?.isNewUser) {
-          console.log('✨ New Google account created successfully');
-        } else {
-          console.log('👋 Existing Google user signed in successfully');
-        }
+      // Check if this was a new user vs existing user
+      if (result.additionalUserInfo?.isNewUser) {
+        console.log('✨ New Google account created successfully');
       } else {
-        console.log('🌐 Using redirect flow for production');
-        // Using signInWithRedirect for better compatibility across environments
-        await auth.signInWithRedirect(googleProvider);
-        // The result will be handled by the onAuthStateChanged listener in AuthContext
+        console.log('👋 Existing Google user signed in successfully');
       }
     } catch (error: any) {
       console.error("Google Sign-In Error:", error);
